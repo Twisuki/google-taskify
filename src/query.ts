@@ -22,20 +22,8 @@ interface OrderOp<T> {
 	direction: "ASC" | "DESC";
 }
 
-/** An offset operation to skip N items. */
-interface OffsetOp {
-	type: "offset";
-	num: number;
-}
-
-/** A limit operation to restrict to N items. */
-interface LimitOp {
-	type: "limit";
-	num: number;
-}
-
-/** All operation types collected in the pipeline. */
-type Op<T> = LikeOp<T> | FilterOp<T> | OrderOp<T> | OffsetOp | LimitOp;
+/** All filter operation types collected in the pipeline. */
+type Op<T> = LikeOp<T> | FilterOp<T>;
 // #endregion
 
 // #region Query
@@ -46,74 +34,93 @@ type Op<T> = LikeOp<T> | FilterOp<T> | OrderOp<T> | OffsetOp | LimitOp;
  * @param <T> - The type of items in the collection.
  */
 export class Query<T> {
-	private readonly source: T[];
+	private data: T[];
 	private ops: Op<T>[] = [];
+	private orders: OrderOp<T>[] = [];
+	private _offset: number = 0;
+	private _limit: number = Infinity;
 
 	constructor(data: T[]) {
-		this.source = [...data];
+		this.data = [...data];
 	}
 
 	/**
 	 * Combines multiple filter conditions with OR logic.
 	 * First executes the current operations, then executes each branch
-	 * from the original source, merges all results, and resets operations.
+	 * from the current data, merges all results with deduplication,
+	 * and replaces the current data with the merged result.
 	 * @param callbacks - One or more callback functions, each collecting a branch's conditions.
 	 * @returns The query instance for chaining.
 	 */
 	public or(...callbacks: ((q: this) => this)[]): this {
 		if (!callbacks.length) return this;
 
-		const merged = [...this.execute()];
+		this.execute();
 
+		const seen = new Set<string>();
 		for (const cb of callbacks) {
-			const sibling = new (this.constructor as new (items: T[]) => this)(this.source);
+			const sibling = new (this.constructor as new (items: T[]) => this)(this.data);
 			cb(sibling);
-			merged.push(...sibling.execute());
+			for (const item of sibling.all()) {
+				seen.add(JSON.stringify(item));
+			}
 		}
 
-		this.source.splice(0, this.source.length, ...merged);
-		this.ops = [];
+		this.data = [];
+		for (const key of seen) {
+			this.data.push(JSON.parse(key));
+		}
+
 		return this;
 	}
 
 	/**
-	 * Executes all collected operations against the source data.
-	 * @returns An array of items after all operations have been applied.
+	 * Executes all collected operations against the current data,
+	 * updates the internal data, and applies offset/limit.
+	 * The operation pipeline and sort array are cleared after execution.
 	 */
-	public execute(): T[] {
-		let data = [...this.source];
-		for (const op of this.ops) {
-			switch (op.type) {
-				case "like":
-					data = data.filter(item => {
+	public execute() {
+		if (this.ops.length > 0) {
+			const result: T[] = [];
+			for (const item of this.data) {
+				let pass = true;
+				for (const op of this.ops) {
+					if (op.type === "like") {
 						const val = item[op.field];
-						return typeof val === "string" && op.values.some(v => val.includes(v));
-					});
-					break;
-				case "filter":
-					data = data.filter(item => op.values.includes(item[op.field]));
-					break;
-				case "order": {
-					const dir = op.direction === "DESC" ? -1 : 1;
-					data.sort((a, b) => {
-						const av = a[op.field] as string | number | boolean | null | undefined;
-						const bv = b[op.field] as string | number | boolean | null | undefined;
-						if (av === bv) return 0;
-						if (av === undefined || av === null) return 1;
-						if (bv === undefined || bv === null) return -1;
-						return av < bv ? -1 * dir : 1 * dir;
-					});
-					break;
+						if (!(typeof val === "string" && op.values.some(v => val.includes(v)))) {
+							pass = false;
+							break;
+						}
+					} else if (op.type === "filter") {
+						if (!op.values.includes(item[op.field])) {
+							pass = false;
+							break;
+						}
+					}
 				}
-				case "offset":
-					data = data.slice(op.num);
-					break;
-				case "limit":
-					data = data.slice(0, op.num);
-					break;
+				if (pass) result.push(item);
 			}
+			this.data = result;
 		}
-		return data;
+		this.ops = [];
+
+		for (const op of this.orders) {
+			const dir = op.direction === "DESC" ? -1 : 1;
+			this.data.sort((a, b) => {
+				const av = a[op.field] as string | number | boolean | null | undefined;
+				const bv = b[op.field] as string | number | boolean | null | undefined;
+				if (av === bv) return 0;
+				if (av === undefined || av === null) return 1;
+				if (bv === undefined || bv === null) return -1;
+				return av < bv ? -1 * dir : 1 * dir;
+			});
+		}
+		this.orders = [];
+
+		if (this._offset > 0) this.data = this.data.slice(this._offset);
+		if (this._limit < Infinity) this.data = this.data.slice(0, this._limit);
+		this._offset = 0;
+		this._limit = Infinity;
 	}
 
 	/**
@@ -130,7 +137,7 @@ export class Query<T> {
 
 	/**
 	 * Collects an exact match condition on a field.
-	 * @param field - The field name to match against.
+	 * @param field - The field name to match exactly.
 	 * @param values - One or more values to match exactly.
 	 * @returns The query instance for chaining.
 	 */
@@ -147,44 +154,48 @@ export class Query<T> {
 	 * @returns The query instance for chaining.
 	 */
 	public order<K extends keyof T>(field: K, direction: "ASC" | "DESC" = "ASC"): this {
-		this.ops.push({ type: "order", field, direction } as OrderOp<T>);
+		this.orders.push({ type: "order", field, direction } as OrderOp<T>);
 		return this;
 	}
 
 	/**
-	 * Skips the first N items.
+	 * Skips the first N items. Accumulates with any previous offset.
 	 * @param num - The number of items to skip.
 	 * @returns The query instance for chaining.
 	 */
 	public offset(num: number): this {
-		this.ops.push({ type: "offset", num });
+		this._offset += num;
 		return this;
 	}
 
 	/**
-	 * Limits the number of items to return.
+	 * Limits the number of items to return. Accumulates with any previous limit.
 	 * @param num - The maximum number of items to return.
 	 * @returns The query instance for chaining.
 	 */
 	public limit(num: number): this {
-		this.ops.push({ type: "limit", num });
+		this._limit = Math.min(this._limit, num);
 		return this;
 	}
 
 	/**
-	 * Returns the first item in the collection, or null if the collection is empty.
+	 * Returns the first item in the data, or null if the data is empty.
+	 * Executes any pending operations before returning.
 	 * @returns The first item, or null.
 	 */
 	public first(): T | null {
-		return this.execute()[0] ?? null;
+		this.execute();
+		return this.data[0] ?? null;
 	}
 
 	/**
-	 * Returns all items as an array.
-	 * @returns An array containing all matching items.
+	 * Returns all items in the data as an array.
+	 * Executes any pending operations before returning.
+	 * @returns An array containing all items in the data.
 	 */
 	public all(): T[] {
-		return this.execute();
+		this.execute();
+		return this.data;
 	}
 }
 // #endregion
