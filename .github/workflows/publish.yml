@@ -19,7 +19,11 @@ jobs:
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
-      - run: npm ci
-      - run: npm run build --if-present
-      - run: npm test
-      - run: npm publish
+
+      - run: npm install -g pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm run build --if-present
+      - run: pnpm test
+      - run: pnpm publish
