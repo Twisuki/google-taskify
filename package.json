@@ -12,12 +12,17 @@
     "lint": "eslint .",
     "fix": "eslint . --fix"
   },
+  "type": "module",
   "dependencies": {
     "undici": "^7.24.5"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^7.7.3",
+    "@types/node": "^25.5.0",
+    "dotenv": "^17.3.1",
     "eslint": "^10.0.3",
-    "tsup": "^8.5.1"
+    "tsconfig-paths": "^4.2.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0"
   }
 }

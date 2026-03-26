@@ -563,18 +563,25 @@ export class Taskify {
 			this.addTaskToList(listId, updated);
 		}
 
+		// 建立临时列表ID到真实ID的映射，用于新任务的创建
+		const listIdMap = new Map<string, string>();
+
 		for (const list of newLists) {
 			const raw = await apis.createTaskList({ title: list.title });
 			const created = this.rawTaskListToTaskList(raw);
+			listIdMap.set(list.id, created.id);
 			this._lists.delete(list.id);
 			this._lists.set(created.id, created);
 		}
 
 		for (const task of newTasks) {
-			const listId = this.findTaskListId(task.id);
-			if (!listId) continue;
+			const tempListId = this.findTaskListId(task.id);
+			if (!tempListId) continue;
+			// 如果任务的列表是新创建的，需要使用真实ID
+			const listId = listIdMap.get(tempListId) ?? tempListId;
 			const raw = await apis.createTask(listId, { title: task.title, notes: task.notes ?? undefined });
 			const created = this.rawTaskToTask(raw, listId);
+			this._tasks.get(tempListId)?.delete(task.id);
 			this._tasks.get(listId)?.delete(task.id);
 			this.addTaskToList(listId, created);
 		}
