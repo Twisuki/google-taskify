@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "lib": ["ES2017", "DOM"],
-    "moduleResolution": "nodenext"
+    "lib": ["ES2020", "DOM"],
+    "moduleResolution": "bundler"
   }
 }
