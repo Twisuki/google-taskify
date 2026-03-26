@@ -33,7 +33,6 @@ export interface TaskList {
 /**
  * Options for initializing a Taskify instance.
  */
-// TODO 测试新的 OAuth 方法
 export interface InitOption {
 	/** The Google OAuth refresh token. */
 	refreshToken: string;
