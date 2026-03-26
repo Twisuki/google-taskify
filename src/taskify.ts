@@ -1,4 +1,6 @@
-import * as apis from "./apis";
+import Undici from "undici";
+import { initRequest } from "./apis.js";
+import * as apis from "./apis.js";
 
 // #region Types
 /**
@@ -40,8 +42,6 @@ export interface InitOption {
 	clientId: string;
 	/** The Google OAuth client secret. */
 	clientSecret: string;
-	/** Optional custom fetch implementation. */
-	fetchImpl?: typeof fetch;
 }
 // #endregion
 
@@ -70,57 +70,47 @@ export class Taskify {
 		return result;
 	}
 
+	private _accessToken: string = "";
+
+	private getAccessToken(): string | undefined {
+		if (!this._accessToken) {
+			throw new Error("Not logged in. Call login() first.");
+		}
+		return this._accessToken;
+	}
+
 	/**
 	 * Creates a new Taskify instance.
 	 * @param option - Initialization options.
 	 */
 	constructor(private readonly option: InitOption) {
-		apis.initRequest(this.authenticatedFetch.bind(this));
+		initRequest(this.getAccessToken.bind(this));
 	}
 
 	/**
 	 * Authenticates with the Google Tasks API using the refresh token.
 	 */
 	async login(): Promise<void> {
-		const tokenRes = await this.fetch("https://oauth2.googleapis.com/token", {
+		const body = new URLSearchParams({
+			grant_type: "refresh_token",
+			refresh_token: this.option.refreshToken,
+			client_id: this.option.clientId,
+			client_secret: this.option.clientSecret,
+		}).toString();
+
+		const { statusCode, body: resBody } = await Undici.request("https://oauth2.googleapis.com/token", {
 			method: "POST",
 			headers: { "content-type": "application/x-www-form-urlencoded" },
-			body: new URLSearchParams({
-				grant_type: "refresh_token",
-				refresh_token: this.option.refreshToken,
-				client_id: this.option.clientId,
-				client_secret: this.option.clientSecret,
-			}),
+			body,
 		});
 
-		const tokenData = (await tokenRes.json()) as { access_token: string };
-		this._accessToken = tokenData.access_token;
-	}
-
-	private _accessToken: string = "";
-
-	private async authenticatedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-		if (!this._accessToken) {
-			throw new Error("Not logged in. Call login() first.");
+		const text = await resBody.text();
+		const data = JSON.parse(text) as { access_token: string };
+		if (statusCode < 200 || statusCode >= 300) {
+			throw new Error(`Login failed: ${statusCode} ${text}`);
 		}
 
-		const headers = new Headers(init?.headers);
-		headers.set("Authorization", `Bearer ${this._accessToken}`);
-
-		return this.fetch(input, {
-			...init,
-			headers,
-		});
-	}
-
-	private fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-		const doFetch = (url: string, opts?: RequestInit) => {
-			const impl = this.option.fetchImpl ?? globalThis.fetch;
-			return impl(url, opts) as Promise<Response>;
-		};
-
-		const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
-		return doFetch(url, init);
+		this._accessToken = data.access_token;
 	}
 
 	// #region Sync methods

@@ -1,4 +1,4 @@
-import { Task, TaskList } from "./taskify";
+import { Task, TaskList } from "./taskify.js";
 
 // #region Types
 /** A fuzzy (contains) match operation on a string field. */

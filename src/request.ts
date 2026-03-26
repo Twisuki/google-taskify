@@ -1,4 +1,4 @@
-export type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+import Undici from "undici";
 
 export class RequestError extends Error {
 	public readonly status: number;
@@ -13,14 +13,14 @@ export class RequestError extends Error {
 }
 
 export class Request {
-	private fetchImpl?: FetchLike;
+	private _tokenGetter?: () => string | undefined;
 
-	constructor(fetchImpl?: FetchLike) {
-		this.fetchImpl = fetchImpl;
+	public setTokenGetter(getter: () => string | undefined): void {
+		this._tokenGetter = getter;
 	}
 
-	public createFetch(fetchImpl: FetchLike) {
-		this.fetchImpl = fetchImpl;
+	private async getToken(): Promise<string | undefined> {
+		return this._tokenGetter?.();
 	}
 
 	public async request<T = unknown>(opts: {
@@ -29,26 +29,37 @@ export class Request {
 		headers?: Record<string, string>;
 		body?: unknown;
 	}): Promise<T> {
-		if (!this.fetchImpl) {
-			throw new Error("Fetch instance not initialized. Call request.createFetch(fetch) first.");
+		const token = await this.getToken();
+
+		const headers: Record<string, string> = {
+			...(opts.body !== undefined ? { "content-type": "application/json" } : {}),
+			...(opts.headers ?? {}),
+		};
+		if (token) {
+			headers["Authorization"] = `Bearer ${token}`;
 		}
 
-		const res = await this.fetchImpl(opts.url, {
+		const { statusCode, statusText, body } = await Undici.request(opts.url, {
 			method: opts.method,
-			headers: {
-				...(opts.body !== undefined ? { "content-type": "application/json" } : {}),
-				...(opts.headers ?? {}),
-			},
+			headers,
 			body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
 		});
 
-		const data = (await res.json()) as unknown;
-
-		if (!res.ok) {
-			throw new RequestError(`HTTP ${res.status} ${res.statusText}`, res.status, data);
+		const text = await body.text();
+		if (statusCode < 200 || statusCode >= 300) {
+			let data: unknown;
+			try {
+				data = JSON.parse(text);
+			} catch {
+				data = text;
+			}
+			throw new RequestError(`HTTP ${statusCode} ${statusText}`, statusCode, data);
 		}
 
-		return data as T;
+		if (!text) {
+			return undefined as T;
+		}
+		return JSON.parse(text) as T;
 	}
 
 	public get<T = unknown>(url: string, headers?: Record<string, string>) {

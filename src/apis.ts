@@ -1,21 +1,15 @@
-import { Request, FetchLike } from "./request";
+import { Request } from "./request.js";
 
 const request = new Request();
-const BASE_URL = "https://tasks.googleapis.com/tasks/v1";
 
 /**
- * Initializes the request instance with a fetch implementation.
+ * Sets the token getter used to inject the access token into each request.
  * Call this before using any API functions.
- * @param fetchImpl - The fetch implementation to use for HTTP requests.
+ * @param tokenGetter - A function that returns the current access token.
  */
-export const initRequest = (fetchImpl: FetchLike) => {
-	request.createFetch(fetchImpl);
+export const initRequest = (tokenGetter: () => string | undefined) => {
+	request.setTokenGetter(tokenGetter);
 };
-
-/**
- * The shared request instance used by all API functions.
- */
-export { request };
 
 export interface RawTaskList {
 	kind: "tasks#taskList";
@@ -70,6 +64,8 @@ export interface GetTasksData {
 	items: RawTask[];
 }
 
+const BASE_URL = "https://tasks.googleapis.com/tasks/v1";
+
 // #region TaskList
 /**
  * Deletes a task list.
@@ -77,7 +73,7 @@ export interface GetTasksData {
  * @returns An empty promise.
  */
 export const deleteTaskList = (tasklist: string) => {
-  return request.delete<void>(`${BASE_URL}/users/@me/lists/${tasklist}`);
+	return request.delete<void>(`${BASE_URL}/users/@me/lists/${tasklist}`);
 };
 
 /**
@@ -86,7 +82,7 @@ export const deleteTaskList = (tasklist: string) => {
  * @returns The task list object.
  */
 export const getTaskList = (tasklist: string) => {
-  return request.get<RawTaskList>(`${BASE_URL}/users/@me/lists/${tasklist}`);
+	return request.get<RawTaskList>(`${BASE_URL}/users/@me/lists/${tasklist}`);
 };
 
 /**
@@ -95,7 +91,7 @@ export const getTaskList = (tasklist: string) => {
  * @returns The created task list.
  */
 export const createTaskList = (data: Partial<RawTaskList>) => {
-  return request.post<RawTaskList>(`${BASE_URL}/users/@me/lists`, data);
+	return request.post<RawTaskList>(`${BASE_URL}/users/@me/lists`, data);
 };
 
 /**
@@ -103,7 +99,7 @@ export const createTaskList = (data: Partial<RawTaskList>) => {
  * @returns A list of task lists.
  */
 export const getTaskLists = () => {
-  return request.get<GetTaskListsData>(`${BASE_URL}/users/@me/lists`);
+	return request.get<GetTaskListsData>(`${BASE_URL}/users/@me/lists`);
 };
 
 /**
@@ -113,7 +109,7 @@ export const getTaskLists = () => {
  * @returns The updated task list.
  */
 export const patchTaskList = (tasklist: string, data: Partial<RawTaskList>) => {
-  return request.patch<RawTaskList>(`${BASE_URL}/users/@me/lists/${tasklist}`, data);
+	return request.patch<RawTaskList>(`${BASE_URL}/users/@me/lists/${tasklist}`, data);
 };
 
 /**
@@ -123,7 +119,7 @@ export const patchTaskList = (tasklist: string, data: Partial<RawTaskList>) => {
  * @returns The updated task list.
  */
 export const updateTaskList = (tasklist: string, data: Partial<RawTaskList>) => {
-  return request.put<RawTaskList>(`${BASE_URL}/users/@me/lists/${tasklist}`, data);
+	return request.put<RawTaskList>(`${BASE_URL}/users/@me/lists/${tasklist}`, data);
 };
 // #endregion
 
@@ -135,7 +131,7 @@ export const updateTaskList = (tasklist: string, data: Partial<RawTaskList>) => 
  * @returns An empty promise.
  */
 export const deleteTask = (tasklist: string, task: string) => {
-  return request.delete<void>(`${BASE_URL}/lists/${tasklist}/tasks/${task}`);
+	return request.delete<void>(`${BASE_URL}/lists/${tasklist}/tasks/${task}`);
 };
 
 /**
@@ -145,7 +141,7 @@ export const deleteTask = (tasklist: string, task: string) => {
  * @returns The task object.
  */
 export const getTask = (tasklist: string, task: string) => {
-  return request.get<RawTask>(`${BASE_URL}/lists/${tasklist}/tasks/${task}`);
+	return request.get<RawTask>(`${BASE_URL}/lists/${tasklist}/tasks/${task}`);
 };
 
 /**
@@ -155,7 +151,7 @@ export const getTask = (tasklist: string, task: string) => {
  * @returns The created task.
  */
 export const createTask = (tasklist: string, data: Partial<RawTask>) => {
-  return request.post<RawTask>(`${BASE_URL}/lists/${tasklist}/tasks`, data);
+	return request.post<RawTask>(`${BASE_URL}/lists/${tasklist}/tasks`, data);
 };
 
 /**
@@ -164,7 +160,7 @@ export const createTask = (tasklist: string, data: Partial<RawTask>) => {
  * @returns A list of tasks.
  */
 export const getTasks = (tasklist: string) => {
-  return request.get<GetTasksData>(`${BASE_URL}/lists/${tasklist}/tasks`);
+	return request.get<GetTasksData>(`${BASE_URL}/lists/${tasklist}/tasks`);
 };
 
 /**
@@ -174,7 +170,7 @@ export const getTasks = (tasklist: string) => {
  * @returns The moved task.
  */
 export const moveTask = (tasklist: string, task: string) => {
-  return request.post<RawTask>(`${BASE_URL}/lists/${tasklist}/tasks/${task}/move`);
+	return request.post<RawTask>(`${BASE_URL}/lists/${tasklist}/tasks/${task}/move`);
 };
 
 /**
@@ -185,7 +181,7 @@ export const moveTask = (tasklist: string, task: string) => {
  * @returns The updated task.
  */
 export const patchTask = (tasklist: string, task: string, data: Partial<RawTask>) => {
-  return request.patch<RawTask>(`${BASE_URL}/lists/${tasklist}/tasks/${task}`, data);
+	return request.patch<RawTask>(`${BASE_URL}/lists/${tasklist}/tasks/${task}`, data);
 };
 
 /**
@@ -196,6 +192,6 @@ export const patchTask = (tasklist: string, task: string, data: Partial<RawTask>
  * @returns The updated task.
  */
 export const updateTask = (tasklist: string, task: string, data: Partial<RawTask>) => {
-  return request.put<RawTask>(`${BASE_URL}/lists/${tasklist}/tasks/${task}`, data);
+	return request.put<RawTask>(`${BASE_URL}/lists/${tasklist}/tasks/${task}`, data);
 };
 // #endregion
