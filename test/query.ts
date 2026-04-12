@@ -1,5 +1,5 @@
 import "dotenv/config"
-import { Taskify, TaskListQuery, TaskQuery } from "../src/index.js"
+import { Taskify, TaskListFilter, TaskFilter } from "../src/index.js"
 
 async function main() {
 	const taskify = new Taskify({
@@ -11,17 +11,17 @@ async function main() {
 	await taskify.login()
 
 	const lists = await taskify.loadTaskLists()
-	const workList = new TaskListQuery(lists).title("工作").first()
+	const workList = new TaskListFilter(lists).title("工作").first()
 
 	if (workList) {
 		const tasks = await taskify.loadTasks(workList.id)
 		console.log("Tasks: ", tasks.map(t => t.title))
 
-		const tasks1 = new TaskQuery(tasks).titleLike("i").all()
-		const tasks2 = new TaskQuery(tasks).titleLike("e").all()
-		const tasks3 = new TaskQuery(tasks).or(
-			q => q.titleLike("i"),
-			q => q.titleLike("e"),
+		const tasks1 = new TaskFilter(tasks).titleLike("i").all()
+		const tasks2 = new TaskFilter(tasks).titleLike("e").all()
+		const tasks3 = new TaskFilter(tasks).or(
+			f => f.titleLike("i"),
+			f => f.titleLike("e"),
 		).all()
 
 		console.log("1: ", tasks1.map(t => t.title))

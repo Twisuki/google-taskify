@@ -24,7 +24,7 @@
     "fix": "eslint . --fix"
   },
   "dependencies": {
-    "@twisuki/neo-filter": "^1.0.0",
+    "@twisuki/neo-filter": "^1.0.2",
     "undici": "^7.24.5"
   },
   "devDependencies": {
