@@ -366,3 +366,153 @@ const result = new Query<Item>(arr).like("field1", "A").limit(10).or(q => q.like
 
 - req: Task
 - res: Task
+
+## neo-filter 适配
+
+自己编写 Query 比较复杂, 因此 2.0 版本准备使用 `@twisuki/neo-filter` 提供查询功能. `neo-filter` 的 `README` 如下:
+
+```md
+# neo-filter
+
+A lightweight, chainable, synchronous array filter utility with multi-field sorting, pagination, and OR-branch support.
+
+## Install
+
+```bash
+pnpm install @twisuki/neo-filter
+```
+
+## Quick Start
+
+```ts
+import { Filter } from "@twisuki/neo-filter";
+
+const results = new Filter<DataItem>(rawData)
+  .filter((item) => item.active)
+  .sorter("createdAt", "DESC")
+  .offset(0)
+  .limit(10)
+  .all();
+```
+
+## API
+
+### `filter(predicate)`
+
+Adds a filter predicate to the operation chain. Multiple `filter()` calls compose with **AND** logic — an item must satisfy every predicate.
+
+```ts
+new Filter(students)
+  .filter((s) => s.subject1 >= 60)
+  .filter((s) => s.subject2 >= 60)
+  .all();
+```
+
+### `sorter(key, direction)`
+
+Adds a sort rule. Rules are appended in insertion order as comparison priority. When two items are equal under the highest-priority rule, the next rule breaks the tie.
+
+Repeating the same key updates only its direction, preserving its original priority position.
+
+```ts
+// Primary: role ASC, tie-break: name ASC
+new Filter(users)
+  .sorter("role", "ASC")
+  .sorter("name", "ASC")
+  .all();
+
+// Repeating the same key keeps its original priority
+new Filter(data)
+  .sorter("name", "ASC")
+  .sorter("name", "DESC") // updates direction only, priority stays first
+  .all();
+```
+
+### `offset(n)` / `limit(n)`
+
+`offset` skips `n` items from the start. Multiple calls are **cumulative** (added together).
+
+`limit` caps the result size. Multiple calls take the **minimum** value.
+
+```ts
+// Page 2 with 10 items per page
+new Filter(data)
+  .offset(10)
+  .limit(10)
+  .all();
+```
+
+### `or(...branches)`
+
+Merges multiple OR branches into the pipeline. Each branch is a function that receives a `Filter` instance and returns it with its own predicates applied.
+
+Branches are combined with OR logic against the existing predicates on `this`.
+
+```ts
+new Filter(students)
+  .filter((s) => s.classId === 1)
+  .or(
+    (f) => f.filter((s) => s.isClassMonitor),
+    (f) => f.filter((s) => s.isStudyCommissar),
+    (f) => f.filter((s) => s.isLifeCommissar),
+  )
+  .all();
+```
+
+### `execute()`
+
+Runs the pipeline: **filter → sort → slice**, resets intermediate state, and returns `this` for further chaining.
+
+If there are no pending operations, it is a no-op.
+
+### `all()`
+
+Terminal method. Executes the pipeline and returns all matching items.
+
+### `first()`
+
+Terminal method. Executes the pipeline and returns the first matching item, or `null` if empty.
+
+### `map(...keys)`
+
+Terminal method. Executes the pipeline and returns a projected array containing only the specified keys from each item.
+
+```ts
+new Filter(users)
+  .filter((u) => u.active)
+  .map("id", "name");
+// Returns: Array<Pick<User, "id" | "name">>
+```
+
+## Extending
+
+Subclass `Filter` to add reusable domain-specific methods:
+
+```ts
+class StudentFilter extends Filter<Student> {
+  public isPassed(subject: Student.Subjects): this {
+    return this.filter((s) => s[subject] && s[subject] >= 60);
+  }
+}
+
+new StudentFilter(students)
+  .isPassed("subject1")
+  .isPassed("subject2")
+  .all();
+```
+
+## Architecture
+
+`execute()` processes data in three stages:
+
+1. **Filter** — iterate `_data`, retain items satisfying every `_operations` predicate
+2. **Sort** — apply `Array.sort` with a multi-field comparator via `_sorter` Map (insertion order = priority order)
+3. **Slice** — apply `_offset` and `_limit` via `Array.slice`
+
+State is reset after each execution so the instance can be reused.
+
+## License
+
+MIT
+
+```

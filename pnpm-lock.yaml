@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@twisuki/neo-filter':
+        specifier: ^1.0.0
+        version: 1.0.0
       undici:
         specifier: ^7.24.5
         version: 7.24.5
@@ -529,6 +532,9 @@ packages:
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
     peerDependencies:
       eslint: ^9.0.0 || ^10.0.0
+
+  '@twisuki/neo-filter@1.0.0':
+    resolution: {integrity: sha512-fIkGpJdQ+VuL3CbTVEftsEKT0V3ItyJcjc8lkhmk5BIuV5XrRrKSoLgXiEfAeNHMLnuaap9qEFjqclKaBhZweA==}
 
   '@types/debug@4.1.13':
     resolution: {integrity: sha512-KSVgmQmzMwPlmtljOomayoR89W4FynCAi3E8PPs7vmDVPe84hT+vGPKkJfThkmXs0x0jAaa9U8uW8bbfyS2fWw==}
@@ -2083,6 +2089,8 @@ snapshots:
       espree: 10.4.0
       estraverse: 5.3.0
       picomatch: 4.0.4
+
+  '@twisuki/neo-filter@1.0.0': {}
 
   '@types/debug@4.1.13':
     dependencies:

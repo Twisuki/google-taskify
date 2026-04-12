@@ -19,10 +19,10 @@
   - [Local Methods](#local-methods)
   - [Sync Methods](#sync-methods)
   - [Offline Batch Operations](#offline-batch-operations)
-- [Query Class](#query-class)
+- [Filter Class](#filter-class)
   - [Common Methods](#common-methods)
-  - [TaskListQuery](#tasklistquery)
-  - [TaskQuery](#taskquery)
+  - [TaskListFilter](#tasklistfilter)
+  - [TaskFilter](#taskfilter)
 - [Low-level API](#low-level-api)
   - [TaskList Operations](#tasklist-operations)
   - [Task Operations](#task-operations)
@@ -455,70 +455,78 @@ async refresh(): Promise<void>
 
 ---
 
-## Query Class
+## Filter Class
 
-A lazy query builder for filtering, sorting, and transforming collections. Conditions are collected during chaining and only executed when `all` or `first` is called.
+A chainable, synchronous array filter utility for filtering, sorting, and transforming collections. Built on top of `neo-filter`'s `Filter` class. Conditions are collected during chaining and only executed when `all`, `first`, or `map` is called.
 
 ### Common Methods
 
-The following methods are available in `Query`, `TaskListQuery`, and `TaskQuery`:
+The following methods are available in `TaskListFilter` and `TaskFilter`:
 
 #### like
 
-Performs a fuzzy (contains) match on a string field.
+Performs a fuzzy (contains) match on a string field. Multiple values are combined with **OR** logic — an item is retained if its field value contains at least one of the given strings.
 
 ```ts
 like<K extends keyof T>(field: K, ...values: string[]): this
 ```
 
-#### filter
+#### match
 
-Performs an exact match on a field.
-
-```ts
-filter<K extends keyof T>(field: K, ...values: T[K][]): this
-```
-
-#### order
-
-Sorts by a field.
+Performs an exact match on a field. Multiple values are combined with **OR** logic — an item is retained if its field value equals at least one of the given values.
 
 ```ts
-order<K extends keyof T>(field: K, direction?: "ASC" | "DESC"): this
+match<K extends keyof T>(field: K, ...values: T[K][]): this
 ```
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `field` | `K` | - | Field name to sort by |
-| `direction` | `"ASC" \| "DESC"` | `"ASC"` | Sort direction |
+#### sorter
+
+Adds a sort rule for a field. Sort rules are appended in insertion order as comparison priority. When two items are equal under the highest-priority rule, the next rule breaks the tie. Repeating the same key updates only its direction, preserving the original priority position.
+
+```ts
+sorter(key: keyof T, direction: "ASC" | "DESC"): this
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `key` | `keyof T` | Field name to sort by |
+| `direction` | `"ASC" \| "DESC"` | Sort direction |
 
 #### offset
 
-Skips the first N items.
+Skips the first N items. Multiple calls are cumulative (added together).
 
 ```ts
-offset(num: number): this
+offset(offset: number): this
 ```
 
 #### limit
 
-Limits the number of items returned.
+Limits the number of items returned. Multiple calls take the **minimum** value.
 
 ```ts
-limit(num: number): this
+limit(limit: number): this
 ```
 
 #### or
 
-Combines multiple filter conditions with OR logic. Executes current operations first, then each branch, merges results with deduplication, and replaces the current data.
+Merges multiple OR branches into the current filter pipeline. Each branch receives a `Filter` instance and returns it with its own predicates applied. All branches are combined with OR logic against the existing predicates.
 
 ```ts
-or(...callbacks: ((q: this) => this)[]): this
+or(...branch: Array<(filter: Filter<T>) => Filter<T>>): this
+```
+
+#### execute
+
+Executes the filter pipeline: **filter → sort → slice**, resets intermediate state, and returns `this` for further chaining. This method does not return results — use `all`, `first`, or `map`.
+
+```ts
+execute(): this
 ```
 
 #### first
 
-Returns the first item, or `null` if empty. Triggers pending operations.
+Returns the first item, or `null` if empty. Triggers pending operations automatically.
 
 ```ts
 first(): T | null
@@ -526,39 +534,47 @@ first(): T | null
 
 #### all
 
-Returns all items. Triggers pending operations.
+Returns all items. Triggers pending operations automatically.
 
 ```ts
 all(): T[]
 ```
 
----
+#### map
 
-### TaskListQuery
-
-Extends `Query<TaskList>` with task list-specific filter methods.
-
-#### title
-
-Filters by exact title match.
+Executes the filter pipeline and returns a projected array containing only the specified keys from each item.
 
 ```ts
-title(...keys: string[]): this
+map<K extends keyof T>(key: K, ...rest: K[]): Pick<T, K>[]
 ```
+
+---
+
+### TaskListFilter
+
+Extends `Filter<TaskList>` with task list-specific convenience methods.
 
 #### titleLike
 
-Filters by fuzzy title match.
+Fuzzy match on the `title` field. Shorthand for `this.like("title", ...keys)`.
 
 ```ts
 titleLike(...keys: string[]): this
 ```
 
+#### title
+
+Exact match on the `title` field. Shorthand for `this.match("title", ...keys)`.
+
+```ts
+title(...keys: string[]): this
+```
+
 ---
 
-### TaskQuery
+### TaskFilter
 
-Extends `Query<Task>` with task-specific filter methods.
+Extends `Filter<Task>` with task-specific convenience methods.
 
 #### done
 
@@ -570,38 +586,38 @@ done(isDone?: boolean): this
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `isDone` | `boolean` | `true` | Whether to filter completed tasks |
-
-#### title
-
-Filters by exact title match.
-
-```ts
-title(...keys: string[]): this
-```
+| `isDone` | `boolean` | `true` | Whether to filter for completed tasks |
 
 #### titleLike
 
-Filters by fuzzy title match.
+Fuzzy match on the `title` field. Shorthand for `this.like("title", ...keys)`.
 
 ```ts
 titleLike(...keys: string[]): this
 ```
 
-#### notes
+#### title
 
-Filters by exact notes match.
+Exact match on the `title` field. Shorthand for `this.match("title", ...keys)`.
 
 ```ts
-notes(...keys: string[]): this
+title(...keys: string[]): this
 ```
 
 #### notesLike
 
-Filters by fuzzy notes match.
+Fuzzy match on the `notes` field. Shorthand for `this.like("notes", ...keys)`.
 
 ```ts
 notesLike(...keys: string[]): this
+```
+
+#### notes
+
+Exact match on the `notes` field. Shorthand for `this.match("notes", ...keys)`.
+
+```ts
+notes(...keys: string[]): this
 ```
 
 ---
