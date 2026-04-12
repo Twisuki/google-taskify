@@ -89,48 +89,48 @@ console.log(tasks);
 
 ### Using Filters
 
-This library provides a powerful `Query` query system, supporting chained calls and multiple filter conditions.
+This library provides a powerful `Filter` system, built on top of `neo-filter`, supporting chained calls and multiple filter conditions.
 
 ```typescript
-import { TaskQuery, TaskListQuery } from "@twisuki/google-taskify";
+import { TaskFilter, TaskListFilter } from "@twisuki/google-taskify";
 
-// Create a task list query
-const listQuery = new TaskListQuery(lists);
+// Create a task list filter
+const listFilter = new TaskListFilter(lists);
 
 // Exact title match
-listQuery.title("My Task List").all();
+listFilter.title("My Task List").all();
 
 // Fuzzy title match
-listQuery.titleLike("work", "important").all();
+listFilter.titleLike("work", "important").all();
 
-// Create a task query
-const taskQuery = new TaskQuery(tasks);
+// Create a task filter
+const taskFilter = new TaskFilter(tasks);
 
 // Filter by completion status (defaults to completed tasks)
-taskQuery.done(true).all();   // completed
-taskQuery.done(false).all();  // incomplete
+taskFilter.done(true).all();   // completed
+taskFilter.done(false).all();  // incomplete
 
 // Exact title match
-taskQuery.title("Buy groceries").all();
+taskFilter.title("Buy groceries").all();
 
 // Fuzzy title match
-taskQuery.titleLike("meeting", "weekly report").all();
+taskFilter.titleLike("meeting", "weekly report").all();
 
 // Fuzzy notes match
-taskQuery.notesLike("https://").all();
+taskFilter.notesLike("https://").all();
 
-// Sort (default ascending)
-taskQuery.order("title").all();
-taskQuery.order("title", "DESC").all();  // descending
+// Sort (ascending by default)
+taskFilter.sorter("title", "ASC").all();
+taskFilter.sorter("title", "DESC").all();  // descending
 
 // Pagination
-taskQuery.offset(10).limit(5).all();
+taskFilter.offset(10).limit(5).all();
 
 // Combine conditions
-taskQuery
+taskFilter
   .done(false)              // incomplete
   .titleLike("project")    // title contains "project"
-  .order("title")
+  .sorter("title", "ASC")
   .limit(20)
   .all();
 ```

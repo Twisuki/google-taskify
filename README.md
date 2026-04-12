@@ -89,48 +89,48 @@ console.log(tasks);
 
 ### 筛选器使用
 
-本库提供了强大的 `Query` 查询系统, 支持链式调用和多种筛选条件.
+本库提供了强大的 `Filter` 筛选系统，基于 `neo-filter` 构建，支持链式调用和多种筛选条件。
 
 ```typescript
-import { TaskQuery, TaskListQuery } from "@twisuki/google-taskify";
+import { TaskFilter, TaskListFilter } from "@twisuki/google-taskify";
 
-// 创建任务列表查询
-const listQuery = new TaskListQuery(lists);
+// 创建任务列表筛选器
+const listFilter = new TaskListFilter(lists);
 
 // 按标题精确匹配
-listQuery.title("我的任务列表").all();
+listFilter.title("我的任务列表").all();
 
 // 按标题模糊匹配
-listQuery.titleLike("工作", "重要").all();
+listFilter.titleLike("工作", "重要").all();
 
-// 创建任务查询
-const taskQuery = new TaskQuery(tasks);
+// 创建任务筛选器
+const taskFilter = new TaskFilter(tasks);
 
 // 按完成状态筛选(默认筛选已完成的任务)
-taskQuery.done(true).all();   // 已完成
-taskQuery.done(false).all();  // 未完成
+taskFilter.done(true).all();   // 已完成
+taskFilter.done(false).all();  // 未完成
 
 // 按标题精确匹配
-taskQuery.title("买菜").all();
+taskFilter.title("买菜").all();
 
 // 按标题模糊匹配
-taskQuery.titleLike("会议", "周报").all();
+taskFilter.titleLike("会议", "周报").all();
 
 // 按备注模糊匹配
-taskQuery.notesLike("https://").all();
+taskFilter.notesLike("https://").all();
 
 // 排序(默认升序)
-taskQuery.order("title").all();
-taskQuery.order("title", "DESC").all();  // 降序
+taskFilter.sorter("title", "ASC").all();
+taskFilter.sorter("title", "DESC").all();  // 降序
 
 // 分页
-taskQuery.offset(10).limit(5).all();
+taskFilter.offset(10).limit(5).all();
 
 // 组合使用
-taskQuery
+taskFilter
   .done(false)              // 未完成
   .titleLike("项目")        // 标题包含"项目"
-  .order("title")
+  .sorter("title", "ASC")
   .limit(20)
   .all();
 ```
